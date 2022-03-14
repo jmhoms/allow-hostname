@@ -64,7 +64,7 @@ if [[ $UFWMODE = "yes" ]]; then
    # Check for root privileges, otherwise quit
    if [[ $EUID -eq 0 ]]; then
       # Check if ufw is active, otherwise quit
-      ufw status | grep -qw active
+      /usr/sbin/ufw status | grep -qw active
       if [[ $? -eq 0 ]]; then
          # resolve hostname
          new_ip=$(host $HOSTNAME | head -n1 | cut -f4 -d ' ')
