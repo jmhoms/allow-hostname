@@ -5,7 +5,7 @@ allow-hostname is a bash script to simplify the access control from dynamic host
 Every time allow-hostname script is executed, 
 - it resolves the hostname set in the variable HOSTNAME
 - if aws mode is activated, it allows in the defined security group all traffic to port 22/tcp from the resolved IP address, and keeps track of it using the aws ssm param store.
-- if iptables or ufw modes are activated, it allows all from the resolved IP address in the respective firewall, using a comment in the rule to track the hostname rule.
+- if iptables or ufw modes are activated, it allows all from the resolved IP address in the respective firewall, using a comment in the rule to track the hostname.
 - Uses the respective track method to remove access to any old IP address where the HOSTNAME doesn't resolve anymore.
 
 Typically the script is executed via cron to make the checks periodically and keep this way the rules updated when HOSTNAME's IP changes.
