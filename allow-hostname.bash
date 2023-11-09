@@ -24,7 +24,7 @@
 # along with this program. If not, see http://www.gnu.org/licenses/
 #
 #
-# ---- Version : 1.1.0
+# ---- Version : 1.2.0
 #
 # ---- Parameters
 #
@@ -34,6 +34,8 @@ HOSTNAME=your.dynamic.hostname.com
 IPTMODE=no
 # Set to yes to enable UFW Mode
 UFWMODE=no
+# Set to yes to enable NFT Mode
+NFTMODE=no
 # Set to yes to enable AWS Mode
 AWSMODE=no
 # Specify the Security Group ID if AWS Mode is enabled
@@ -190,5 +192,39 @@ if [[ $AWSMODE = "yes" ]]; then
     fi
   else
     echo "allow-hostname: AWS client not available. Quitting..."
+  fi
+fi
+
+# NFT MODE
+# If mode is active
+if [[ $NFTMODE = "yes" ]]; then
+  # Check for root privileges, otherwise quit
+  if [[ $EUID -eq 0 ]]; then
+    # Create a table if it does not exist
+    nft list tables | grep -qw "inet filter" || nft add table inet filter
+    # Create a chain for allow-hostname rules if it doesn't exist
+    nft list table inet filter | grep -qw allow-hostname || nft add chain inet filter allow-hostname
+    # Ensure that there's a jump rule from the input chain to allow-hostname chain
+    nft list ruleset 2>/dev/null | grep -qw 'jump allow-hostname' || nft insert rule inet filter input jump allow-hostname
+    # Resolve hostname
+    new_ip=$(host $HOSTNAME | head -n1 | cut -f4 -d ' ')
+    if is_ip_valid $new_ip; then
+      # Check for an existing IP in the nft rules for this hostname
+      old_ip=$(nft list ruleset 2>/dev/null | grep "comment \"$HOSTNAME\"" | sed -e 's/^.*saddr \([^ ]*\).*$/\1/')
+      # Update the rules if the hostname is resolving to a new IP
+      if [ "$new_ip" != "$old_ip" ] ; then
+        # If a rule for a previous IP exists, delete it
+        if [ -n "$old_ip" ] ; then
+          nft flush chain inet filter allow-hostname
+        fi
+        # Add a rule with the new IP and the hostname as a comment
+        nft add rule inet filter allow-hostname ip saddr $new_ip accept comment \"$HOSTNAME\"
+        echo "allow-hostname: nft rule added to allow everything from IP address $new_ip"
+      fi
+    else
+      echo "allow-hostname: hostname specified does not resolve. Quitting..."
+    fi
+  else
+    echo "allow-hostname: this script must be run with root privileges when using the nft mode. Quitting..."
   fi
 fi
